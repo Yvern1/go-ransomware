@@ -6,7 +6,7 @@ import (
 	"io"
 	"archive/zip"
 	"path/filepath"
-	"github.com/Ywern1/ransomware-go/walker"
+	"github.com/Ywern1/go-ransomware/walker"
 )
 
 func zipSource(source, archive string) error {

