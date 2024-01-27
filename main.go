@@ -72,4 +72,6 @@ func main() {
 	if err := zipSource(walker.TempDir+"unencrypted", walker.TempDir+"unencrypted.zip"); err != nil {
 		fmt.Println(err)
 	}
+	// a way remove byte slice from memory
+	walker.EncKey = nil
 }
