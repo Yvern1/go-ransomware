@@ -6,9 +6,8 @@ Simple implementation of concurrent full system encryption. This program uses AE
 
 ## TODO
 
-- RSA key encryption
-- web server
+- C&C server
 - network traverse
 - shadow copy deletion
 - flags
-- proper erro handling 
+- proper error handling 
